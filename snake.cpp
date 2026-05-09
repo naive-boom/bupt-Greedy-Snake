@@ -285,9 +285,26 @@ char bfs_direction ()
     return '\0';
 }
 
-char ai_choose_direction()
+char ai_choose_direction(int N)
 {
-    return 'W';
+    //第一步，安全检测
+    char dirs[] = {'W', 'S', 'A', 'D'};
+    vector<char> safe_dirs;
+    for (int i = 0;i < 4;i++) 
+        if (is_safe(dirs[i], N))  safe_dirs.push_back(dirs[i]);
+    if (safe_dirs.empty()) return cur_dir;//死到临头，再无话说
+    //第二步，预测
+    char bfs = bfs_direction();
+    int safe_dirs_num = size(safe_dirs);
+    for(int i = 0; i < safe_dirs_num; i++)
+    {
+        if(safe_dirs[i] == bfs)
+        {
+            return bfs;
+        }
+    }
+    //第三步，横竖都是死
+    return safe_dirs[0];
 }
 
 
@@ -307,11 +324,11 @@ int main()
         // 2.1 保存当前状态（用于碰撞后输出）
         make_last_picture();
         // 2.2 决定方向、输出方向
-        char dir = ai_choose_direction();//这里需要编写贪吃蛇的ai   目前比较迷茫   没有想清楚
+        char dir = ai_choose_direction(N);//这里需要编写贪吃蛇的ai   目前比较迷茫   没有想清楚
         // 2.3 输出移动前得分
         cout << dir << "\n" << score << "\n" << flush;
         // 2.4 计算移动、更新蛇、得分、食物
-        change_snake(dir);
+        change_snake(dir,head);                                              //这里存疑
         extender(N);
         // 2.5 读入评测程序返回的两个整数
         bool keep = accepter();
