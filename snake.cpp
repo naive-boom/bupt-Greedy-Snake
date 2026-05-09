@@ -3,6 +3,14 @@
 #include<vector>
 using namespace std;
 
+///关于众多图的注解,以便后续查看
+// map 原图
+// base 去掉蛇的图
+// last_picture 最后一步的快照
+// pass 将障碍物bool化的图
+// first_dir 以蛇头为中心，第一次走到每一格子所需求的第一个方向
+// distence_map 以蛇头为中心的最短的距离
+
 struct position{
     int x,y;
 };
@@ -222,7 +230,60 @@ bool is_safe (char dir ,int N)//不小心全整成全局了，那很方便了
     return true;
 }
 
-
+char bfs_direction ()
+{
+    //首先判断有没有食物
+    if(food.x == 0) return '\0';
+    //将base图中的墙和障碍物都标记成一样的东西
+    bool pass[20][20] = {0};
+    for (int i = 0; i < 20; i++)
+        for (int j = 0; j < 20; j++)
+            if(base[i][j] == '#' && base[i][j] == 'O') pass[i][j] == 1;
+    //将base中的蛇身设置为不可通行
+    for (int i = 0; i < body.size() - 1; i++) //最后一个不读取
+    {
+        base[body[i].x][body[i].y] = 1;
+    }
+    //bfs需要的模拟
+    int dx[] = {-1, 1, 0, 0};   // W S A D
+    int dy[] = {0, 0, -1, 1};
+    char dchar[] = {'W', 'S', 'A', 'D'};
+    int first_dir [20] [20];
+    //导航队列的逻辑
+    int distence_map[20][20] =  {-1};
+    vector<position> map_num;
+    position start = body[0];
+    map_num.push_back(start);
+    distence_map[start.x][start.y] = 0;
+    int num_mark = 0;
+    //一直循环给图上所有位置标点（不全了就说明没戏了，得苟活）
+    while (num_mark < map_num.size())
+    {
+        position cur = map_num[num_mark];
+        num_mark++;
+        if (cur.x == food.x && cur.y == food.y)//判断食物
+        return dchar[ first_dir[cur.x][cur.y] ];
+        for (int d = 0; d < 4; d++) //扩展邻居
+        {
+            int nx = cur.x + dx[d];
+            int ny = cur.y + dy[d];
+            if (nx < 0 || nx > 19 || ny < 0 || ny > 19) continue;// 超出地图边界
+            if (!pass[nx][ny]) continue;// 不能走（墙、障碍或身体）
+            if (distence_map[nx][ny] == -1)// 这个格子没走过
+            {
+                distence_map[nx][ny] = distence_map[cur.x][cur.y] + 1; //添加这个格子
+            }
+            if (cur.x == start.x && cur.y == start.y)//决定这个格子的方向
+            first_dir[nx][ny] = d;
+            else
+            first_dir[nx][ny] = first_dir[cur.x][cur.y];
+            map_num.push_back({nx, ny});//在步数地图中更新这个邻居
+            position cur = map_num[num_mark];
+            num_mark++;
+        }
+    }
+    return '\0';
+}
 
 char ai_choose_direction()
 {
@@ -241,7 +302,8 @@ int main()
     find_body (map);//将身体找出
     make_base_map();//制作原装地图
     // 2. 交互循环
-    while (true) {
+    while (true)
+    {
         // 2.1 保存当前状态（用于碰撞后输出）
         make_last_picture();
         // 2.2 决定方向、输出方向
