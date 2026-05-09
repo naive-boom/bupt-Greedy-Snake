@@ -119,36 +119,20 @@ bool is_opposite (char snake_dir,char turn_dir)
     else return false;
 }
 //2.行进一步以后的贪吃蛇的蛇头(关于蛇尾巴涉及到增长问题，需要分开算)
-void predict_new_head(char turn_dir,position new_head)
+// 根据方向计算新蛇头位置，不修改 body
+void get_new_head(char dir, position &nh) 
 {
-    if (turn_dir == 'W')
-    {
-        position new_head = body[0];
-        new_head.x--;
-        body.insert(body.begin(),new_head);
-    }
-    else if (turn_dir == 'S')
-    {
-        position new_head = body[0];
-        new_head.x++;
-        body.insert(body.begin(),new_head);
-    }
-    else if (turn_dir == 'A')
-    {
-        position new_head = body[0];
-        new_head.y--;
-        body.insert(body.begin(),new_head);
-    }
-    else if (turn_dir == 'D')
-    {
-        position new_head = body[0];
-        new_head.y++;
-        body.insert(body.begin(),new_head);
-    }
+    nh = body[0];            // 从当前蛇头出发
+    if (dir == 'W') nh.x--;
+    else if (dir == 'S') nh.x++;
+    else if (dir == 'A') nh.y--;
+    else if (dir == 'D') nh.y++;
 }
 void change_snake(char turn_dir,position new_head)
 {
-    predict_new_head(turn_dir,new_head);
+    position nh;
+    get_new_head(turn_dir, nh);
+    body.insert(body.begin(), nh);
     //这里应该要更新一下蛇头，要不然蛇头后面用不了了就
     head.x = body[0].x;
     head.y = body[0].y;
@@ -157,7 +141,7 @@ void change_snake(char turn_dir,position new_head)
 //（附加移动次数统计，因为每一步都需要判断是否需要增长，两者等价）
 bool judge_extend(int move_count,position food,position head,int N)//下面那个泛用性太差了，换这个来judge
 {
-    if(food.x == head.x && food.y == head.y || move_count == N)return true;
+    if(food.x == head.x && food.y == head.y || move_count + 1 == N)return true;
     return false;
 }
 
@@ -169,6 +153,7 @@ bool if_extend(int &move_count,position &food,position head,int N)
         extend = true;
         score += 10;
         food = {-1,-1};
+        if (move_count == N) move_count = 0; 
     }
     else if(move_count == N) 
     {
@@ -196,9 +181,9 @@ bool accepter()
     if(x == 20 && y == 20) return true;//这种情况是无所谓的继续就行了
     else if(x == 100 && y == 100)//一切都结束了，需要打印结束时候的地图和分数
     {
-        for(int i = 0;i < 20;i++)
-        cout<<last_picture[i]<<endl;
-        cout<<score;
+        for (int i = 0; i < 20; i++)
+        cout << last_picture[i] << '\n';
+        cout << score << '\n' << flush;    // 最后刷新
         return false;
     }
     else if(x >= 0 && x < 20 && y >= 0 && y < 20)//需要更新地图中的food
@@ -218,7 +203,7 @@ bool is_safe (char dir ,int N)//不小心全整成全局了，那很方便了
     if (is_opposite(cur_dir, dir)) return false;
     // 2. 计算新蛇头(这里最好换一个蛇头代之，否则则会和后面的混合起来)
     position pre_new_head = head;
-    predict_new_head(dir,pre_new_head);
+    get_new_head(dir,pre_new_head);
     if (base[pre_new_head.x][pre_new_head.y] == '#' || base[pre_new_head.x][pre_new_head.y] == 'O')
         return false;//判断撞墙
     bool will_grow = judge_extend(move_count,food,pre_new_head,N);//判断是否增长（还是extender的问题，已经修改）
@@ -233,24 +218,27 @@ bool is_safe (char dir ,int N)//不小心全整成全局了，那很方便了
 char bfs_direction ()
 {
     //首先判断有没有食物
-    if(food.x == 0) return '\0';
+    if(food.x == -1) return '\0';
     //将base图中的墙和障碍物都标记成一样的东西
     bool pass[20][20] = {0};
     for (int i = 0; i < 20; i++)
         for (int j = 0; j < 20; j++)
-            if(base[i][j] == '#' && base[i][j] == 'O') pass[i][j] == 1;
+            if(base[i][j] == '#' || base[i][j] == 'O') pass[i][j] = 1;
     //将base中的蛇身设置为不可通行
     for (int i = 0; i < body.size() - 1; i++) //最后一个不读取
     {
-        base[body[i].x][body[i].y] = 1;
+        pass[body[i].x][body[i].y] = 1;
     }
     //bfs需要的模拟
     int dx[] = {-1, 1, 0, 0};   // W S A D
     int dy[] = {0, 0, -1, 1};
     char dchar[] = {'W', 'S', 'A', 'D'};
     int first_dir [20] [20];
+    memset(first_dir, 0, sizeof(first_dir));
     //导航队列的逻辑
-    int distence_map[20][20] =  {-1};
+    //map_num 已经记录需要步数的已知的格子数 distense_map 用从蛇头到这个点的所需要的长度填充的图 num_mark 需要记录的已知的格子的总数
+    int distence_map[20][20];
+    memset(distence_map, -1, sizeof(distence_map));//这个ai说必须要的我也没啥办法咯
     vector<position> map_num;
     position start = body[0];
     map_num.push_back(start);
@@ -268,18 +256,17 @@ char bfs_direction ()
             int nx = cur.x + dx[d];
             int ny = cur.y + dy[d];
             if (nx < 0 || nx > 19 || ny < 0 || ny > 19) continue;// 超出地图边界
-            if (!pass[nx][ny]) continue;// 不能走（墙、障碍或身体）
+            if (pass[nx][ny]) continue;// 不能走（墙、障碍或身体）
             if (distence_map[nx][ny] == -1)// 这个格子没走过
             {
                 distence_map[nx][ny] = distence_map[cur.x][cur.y] + 1; //添加这个格子
+                if (cur.x == start.x && cur.y == start.y)//决定这个格子的方向
+                first_dir[nx][ny] = d;
+                else
+                first_dir[nx][ny] = first_dir[cur.x][cur.y];
+                map_num.push_back({nx, ny});//在步数地图中更新这个邻居
             }
-            if (cur.x == start.x && cur.y == start.y)//决定这个格子的方向
-            first_dir[nx][ny] = d;
-            else
-            first_dir[nx][ny] = first_dir[cur.x][cur.y];
-            map_num.push_back({nx, ny});//在步数地图中更新这个邻居
-            position cur = map_num[num_mark];
-            num_mark++;
+
         }
     }
     return '\0';
@@ -295,7 +282,7 @@ char ai_choose_direction(int N)
     if (safe_dirs.empty()) return cur_dir;//死到临头，再无话说
     //第二步，预测
     char bfs = bfs_direction();
-    int safe_dirs_num = size(safe_dirs);
+    int safe_dirs_num = safe_dirs.size();
     for(int i = 0; i < safe_dirs_num; i++)
     {
         if(safe_dirs[i] == bfs)
