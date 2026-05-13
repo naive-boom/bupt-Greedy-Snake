@@ -29,6 +29,9 @@ void map_filler (char map[20][21])
         fflush(stdout);
     }
 
+
+
+    cout << "test" << endl;
 }
 
 void find_head_food (char map[20][21])
